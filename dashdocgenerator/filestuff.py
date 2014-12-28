@@ -2,9 +2,12 @@
 
 import os
 import shutil
+import subprocess
+from glob import glob
 from bs4 import BeautifulSoup
-
 from .helper import is_sequence
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class Fs(object):
@@ -13,7 +16,7 @@ class Fs(object):
 
     def get_new_file_name(self, filepath, ext='.html'):
         """ generate new filename based on the path """
-        return os.path.join(
+        return self.joinpath(
             os.path.dirname(filepath),
             os.path.basename(filepath) + ext)
 
@@ -24,6 +27,10 @@ class Fs(object):
     def exists(self, src):
         """ alias for os.path.exists """
         return os.path.exists(src)
+
+    def joinpath(self, *args):
+        """ os join shortcut """
+        return os.path.join(*args)
 
     def mkdir(self, filename):
         """ mkdir -p """
@@ -57,6 +64,10 @@ class Fs(object):
         """ rename directory """
         return os.rename(src, dest)
 
+    def get_dir_files(self, pattern):
+        """ get files from directory """
+        return glob(pattern)
+
     def get_base_name(self, filename=None):
         """ get name of file without ext """
         if filename is None:
@@ -83,6 +94,37 @@ class Fs(object):
         if self.exists(filename):
             with open(filename) as doc:
                 return doc.read()
+
+
+class Wget(Fs):
+
+    """ wget helper """
+
+    def get_docs_from_url(
+            self,
+            cmd='wget',
+            opts=[],
+            url="localhost",
+            runfrom=BASE_DIR):
+        """
+        get the docs
+        wget --mirror -p -k http://127.0.0.1:8000/
+        """
+        cmdList = [cmd]
+        cmdList.extend(opts)
+        cmdList.append(url)
+        retcode = subprocess.call(cmdList, cwd=runfrom)
+        return retcode
+
+    def clean_structure(self, fileglob):
+        """ clean the wget .1 and name/index.html structure """
+        for thing in fileglob:
+            if (self.isdir(thing) and
+                    self.exists(self.joinpath(thing, 'index.html'))):
+                self.move(
+                    self.joinpath(thing, 'index.html'),
+                    self.get_new_file_name(thing))
+            self.rm(thing)
 
 
 class Soupy(Fs):
